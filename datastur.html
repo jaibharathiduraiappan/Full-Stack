@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Plain Layout */
+        body { 
+            font-family: "Times New Roman", Times, serif; 
+            text-align: center; 
+            margin-top: 20px;
+            background: white;
+            color: black;
+        }
+
+        .controls { margin: 20px 0; }
+        input, button { 
+            padding: 5px; 
+            font-family: "Times New Roman", Times, serif;
+            border: 1px solid black;
+            background: white;
+        }
+
+        /* SVG Styling */
+        #queue-svg {
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .segment {
+            fill: white;
+            stroke: black;
+            stroke-width: 1.5;
+        }
+
+        .segment.front {
+            fill: lightgreen;
+        }
+
+        .segment.rear {
+            stroke-width: 4;
+        }
+        
+        .slot-text {
+            font-size: 16px;
+            fill: black;
+        }
+
+        .index-text {
+            font-size: 14px;
+            fill: black;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        footer {
+            margin-top: 40px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Circular Queue Visualization</h1>
+
+    <div class="controls">
+        <label>Size:</label>
+        <!-- Value attribute removed to keep it empty on start -->
+        <input type="number" id="sizeInput" min="2" max="16" style="width: 50px;">
+        <button onclick="initQueue()">Initialize</button>
+    </div>
+
+    <div id="queueControls" class="controls" style="display:none;">
+        <input id="in" placeholder="Val" style="width: 50px;">
+        <button onclick="op(1)">Enqueue</button>
+        <button onclick="op(0)">Dequeue</button>
+    </div>
+
+    <svg id="queue-svg" width="400" height="400" viewBox="0 0 400 400"></svg>
+
+    <div id="status"></div>
+
+    <footer>Created by D.JAI BHARATHI</footer>
+
+    <script>
+        let size, q, f, r;
+
+        function initQueue() {
+            const sInput = document.getElementById('sizeInput');
+            const svg = document.getElementById('queue-svg');
+            size = parseInt(sInput.value);
+
+            if (isNaN(size) || size < 2) {
+                alert("Please enter a valid size (minimum 2)");
+                svg.innerHTML = ''; // Clear svg if size is invalid
+                document.getElementById('queueControls').style.display = 'none';
+                return;
+            }
+
+            q = Array(size).fill(null);
+            f = -1;
+            r = -1;
+
+            document.getElementById('queueControls').style.display = 'block';
+            render();
+        }
+
+        function op(isAdd) {
+            const input = document.getElementById('in');
+            const val = input.value;
+            
+            if (isAdd) {
+                if ((r + 1) % size === f) return alert("Queue Full");
+                if (!val) return;
+                if (f === -1) f = 0;
+                r = (r + 1) % size;
+                q[r] = val;
+                input.value = "";
+            } else {
+                if (f === -1) return alert("Queue Empty");
+                q[f] = null;
+                if (f === r) { f = r = -1; } 
+                else { f = (f + 1) % size; }
+            }
+            render();
+        }
+
+        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+            return {
+                x: centerX + (radius * Math.cos(angleInRadians)),
+                y: centerY + (radius * Math.sin(angleInRadians))
+            };
+        }
+
+        function describeArc(x, y, innerR, outerR, startA, endA) {
+            const start = polarToCartesian(x, y, outerR, endA);
+            const end = polarToCartesian(x, y, outerR, startA);
+            const innerStart = polarToCartesian(x, y, innerR, endA);
+            const innerEnd = polarToCartesian(x, y, innerR, startA);
+            const largeArc = endA - startA <= 180 ? "0" : "1";
+
+            return [
+                "M", start.x, start.y, 
+                "A", outerR, outerR, 0, largeArc, 0, end.x, end.y,
+                "L", innerEnd.x, innerEnd.y,
+                "A", innerR, innerR, 0, largeArc, 1, innerStart.x, innerStart.y,
+                "Z"
+            ].join(" ");
+        }
+
+        function render() {
+            const svg = document.getElementById('queue-svg');
+            const status = document.getElementById('status');
+            svg.innerHTML = '';
+
+            const cx = 200, cy = 200;
+            const outerR = 140;
+            const innerR = 80;
+            const step = 360 / size;
+
+            for (let i = 0; i < size; i++) {
+                const startA = i * step;
+                const endA = (i + 1) * step;
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                let cls = "segment";
+                if (i === f) cls += " front";
+                if (i === r) cls += " rear";
+                path.setAttribute("d", describeArc(cx, cy, innerR, outerR, startA, endA));
+                path.setAttribute("class", cls);
+                svg.appendChild(path);
+
+                const tPos = polarToCartesian(cx, cy, (innerR + outerR) / 2, startA + step / 2);
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("x", tPos.x);
+                txt.setAttribute("y", tPos.y + 6);
+                txt.setAttribute("text-anchor", "middle");
+                txt.setAttribute("class", "slot-text");
+                txt.textContent = q[i] || "-";
+                svg.appendChild(txt);
+
+                const labelPos = polarToCartesian(cx, cy, outerR + 25, startA + step / 2);
+                let labelStr = i;
+                if (i === f) labelStr += " (F)";
+                if (i === r) labelStr += " (R)";
+                
+                const lTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                lTxt.setAttribute("x", labelPos.x);
+                lTxt.setAttribute("y", labelPos.y + 5);
+                lTxt.setAttribute("text-anchor", "middle");
+                lTxt.setAttribute("class", "index-text");
+                lTxt.textContent = labelStr;
+                svg.appendChild(lTxt);
+            }
+
+            status.innerHTML = `FRONT: ${f} | REAR: ${r} | SIZE: ${size}`;
+        }
+    </script>
+</body>
+</html>
