@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<script>
+let birthYear = 2005;
+let currentYear = 2026;
+
+let age = currentYear - birthYear;
+
+document.write("Your Age is " + age);
+</script>
+
+</body>
+</html>
